@@ -1,135 +1,222 @@
-import React, { useEffect, useState } from 'react';
-import { FaSearch } from 'react-icons/fa';
+import React, { useEffect, useState } from 'react'
+import { FaSearch } from 'react-icons/fa'
 import axios from 'axios';
-import { toast } from 'react-toastify';
+import { toast } from 'react-toastify'
 import { useAuth } from '../../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom'
 import { IoArrowBackSharp } from 'react-icons/io5';
-import { BiLogOut } from 'react-icons/bi';
+import { BiLogOut } from "react-icons/bi";
 import userConversation from '../../Zustans/useConversation';
+import { useSocketContext } from '../../context/SocketContext';
 
+const Sidebar = ({ onSelectUser }) => {
 
-const Sidebar = ({ onSelectUser, isSidebarVisible, toggleSidebar }) => {
     const navigate = useNavigate();
     const { authUser, setAuthUser } = useAuth();
     const [searchInput, setSearchInput] = useState('');
     const [searchUser, setSearchuser] = useState([]);
     const [chatUser, setChatUser] = useState([]);
     const [loading, setLoading] = useState(false);
-    const [selectedUserId, setSelectedUserId] = useState(null);
-    const { setSelectedConversation } = userConversation();
+    const [selectedUserId, setSetSelectedUserId] = useState(null);
+    const [newMessageUsers, setNewMessageUsers] = useState('');
+    const { messages, setMessage, selectedConversation, setSelectedConversation } = userConversation();
+    const { onlineUser, socket } = useSocketContext();
+
+    const nowOnline = chatUser.map((user) => (user._id));
+    //chats function
+    const isOnline = nowOnline.map(userId => onlineUser.includes(userId));
 
     useEffect(() => {
+        socket?.on("newMessage", (newMessage) => {
+            setNewMessageUsers(newMessage);
+        })
+        return () => socket?.off("newMessage");
+    }, [socket, messages])
+
+    //show user with u chatted
+    useEffect(() => {
         const chatUserHandler = async () => {
-            setLoading(true);
+            setLoading(true)
             try {
-                const chatters = await axios.get(`/api/user/currentchatters`);
-                setLoading(false);
-                setChatUser(chatters.data || []);
+                const chatters = await axios.get(`/api/user/currentchatters`)
+                const data = chatters.data;
+                if (data.success === false) {
+                    setLoading(false)
+                    console.log(data.message);
+                }
+                setLoading(false)
+                setChatUser(data)
+
             } catch (error) {
-                setLoading(false);
+                setLoading(false)
                 console.log(error);
             }
-        };
-        chatUserHandler();
-    }, []);
+        }
+        chatUserHandler()
+    }, [])
 
-    const handleSearchSubmit = async (e) => {
+    //show user from the search result
+    const handelSearchSubmit = async (e) => {
         e.preventDefault();
-        setLoading(true);
+        setLoading(true)
         try {
             const search = await axios.get(`/api/user/search?search=${searchInput}`);
-            setLoading(false);
-            setSearchuser(search.data.length ? search.data : []);
+            const data = search.data;
+            if (data.success === false) {
+                setLoading(false)
+                console.log(data.message);
+            }
+            setLoading(false)
+            if (data.length === 0) {
+                toast.info("User Not Found")
+            } else {
+                setSearchuser(data)
+            }
         } catch (error) {
-            setLoading(false);
+            setLoading(false)
             console.log(error);
         }
-    };
+    }
 
-    const handleUserClick = (user) => {
-      onSelectUser(user);
+    //show which user is selected
+    const handelUserClick = (user) => {
+        onSelectUser(user);
         setSelectedConversation(user);
-        setSelectedUserId(user._id);
-       
-    };
+        setSetSelectedUserId(user._id);
+        setNewMessageUsers('');
+    }
 
-    const handleSearchBack = () => {
+    //back from search result
+    const handSearchback = () => {
         setSearchuser([]);
         setSearchInput('');
-    };
+    }
 
-    const handleLogOut = async () => {
-        const confirmLogout = window.prompt("Type 'UserName' to LOGOUT");
-        if (confirmLogout === authUser.username) {
-            setLoading(true);
+    //logout
+    const handelLogOut = async () => {
+
+        const confirmlogout = window.prompt("type 'UserName' To LOGOUT");
+        if (confirmlogout === authUser.username) {
+            setLoading(true)
             try {
-                await axios.post('/api/auth/logout');
-                toast.info('Logged out successfully');
-                localStorage.removeItem('chatapp');
-                setAuthUser(null);
-                setLoading(false);
-                navigate('/login');
+                const logout = await axios.post('/api/auth/logout')
+                const data = logout.data;
+                if (data?.success === false) {
+                    setLoading(false)
+                    console.log(data?.message);
+                }
+                toast.info(data?.message)
+                localStorage.removeItem('chatapp')
+                setAuthUser(null)
+                setLoading(false)
+                navigate('/login')
             } catch (error) {
-                setLoading(false);
+                setLoading(false)
                 console.log(error);
             }
         } else {
-            toast.info('Logout Cancelled');
+            toast.info("LogOut Cancelled")
         }
-    };
+
+    }
 
     return (
-        <div className={`fixed md:relative h-screen w-72 bg-gray-800 text-white px-2 py-4 flex flex-col transition-transform ${isSidebarVisible ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}>  
-            <form onSubmit={handleSearchSubmit} className="flex items-center bg-gray-700 rounded-full shadow-sm px-3">
-                <input
-                    value={searchInput}
-                    onChange={(e) => setSearchInput(e.target.value)}
-                    type="text"
-                    className="flex-1 py-2 px-3 text-sm bg-transparent outline-none w-full text-white"
-                    placeholder="Search user"
-                />
-                <button className="p-2 rounded-full bg-sky-700 hover:bg-gray-600 transition">
-                    <FaSearch className="text-white" />
-                </button>
-            </form>
-
-            <div className="flex-1 overflow-y-auto mt-4">
-                {searchUser.length > 0 ? (
-                    searchUser.map((user) => (
-                        <div key={user._id} className="flex items-center gap-3 p-3 rounded-lg cursor-pointer hover:bg-gray-700 transition" onClick={() => handleUserClick(user)}>
-                            <p className="text-white font-semibold text-sm">{user.username}</p>
-                        </div>
-                    ))
-                ) : (
-                    chatUser.length === 0 ? (
-                        <p className="text-center text-yellow-400 text-lg font-semibold">Search username to chat</p>
-                    ) : (
-                        chatUser.map((user) => (
-                            <div key={user._id} className="flex items-center gap-3 p-3 rounded-lg cursor-pointer hover:bg-gray-700 transition" onClick={() => handleUserClick(user)}>
-                                <p className="text-white font-semibold text-sm">{user.username}</p>
-                            </div>
-                        ))
-                    )
-                )}
-            </div>
-
-            {searchUser.length > 0 && (
-                <div className="flex justify-center p-2">
-                    <button onClick={handleSearchBack} className="bg-gray-700 rounded-full p-2 hover:bg-gray-600 transition">
-                        <IoArrowBackSharp size={25} className="text-white" />
+        <div className='h-full w-full px-3 py-4 bg-gray-800'>
+            <div className='flex justify-between items-center gap-3'>
+                <form onSubmit={handelSearchSubmit} className='w-full flex items-center justify-between bg-white rounded-full shadow-md'>
+                    <input
+                        value={searchInput}
+                        onChange={(e) => setSearchInput(e.target.value)}
+                        type='text'
+                        className='px-4 py-2 w-full bg-transparent outline-none rounded-full focus:ring-2 focus:ring-sky-500'
+                        placeholder='Search user...'
+                    />
+                    <button className='btn btn-circle bg-sky-700 hover:bg-sky-800 p-2'>
+                        <FaSearch className='text-white' />
                     </button>
-                </div>
-            )}
-
-            <div className="flex justify-center items-center gap-2 p-3">
-                <button onClick={handleLogOut} className="flex items-center gap-2 text-red-400 hover:bg-red-600 hover:text-white p-2 rounded-lg transition">
-                    <BiLogOut size={25} />
-                    <span className="text-sm sm:text-base">Logout</span>
-                </button>
+                </form>
+                <img
+                    onClick={() => navigate(`/profile/${authUser?._id}`)}
+                    src={authUser?.profilepic}
+                    className='self-center h-12 w-12 rounded-full hover:scale-110 cursor-pointer shadow-md transition-all' />
             </div>
+            <div className='divider my-3 px-2'></div>
+            {searchUser?.length > 0 ? (
+                <>
+                    <div className="min-h-[70%] max-h-[80%] overflow-y-auto scrollbar">
+                        {searchUser.map((user, index) => (
+                            <div key={user._id}>
+                                <div
+                                    onClick={() => handelUserClick(user)}
+                                    className={`flex gap-3 items-center rounded-lg p-3 cursor-pointer hover:bg-sky-600 transition duration-300 
+                                        ${selectedUserId === user?._id ? 'bg-sky-500' : ''}`}
+                                >
+                                    {/* Socket Online Status */}
+                                    <div className={`avatar ${isOnline[index] ? 'online' : ''}`}>
+                                        <div className="w-12 h-12 rounded-full overflow-hidden shadow-lg">
+                                            <img src={user.profilepic} alt="user.img" />
+                                        </div>
+                                    </div>
+                                    <div className='flex flex-col flex-1'>
+                                        <p className='font-semibold text-gray-100'>{user.username}</p>
+                                    </div>
+                                </div>
+                                <div className='divider divide-solid px-2 h-[1px]'></div>
+                            </div>
+                        ))}
+                    </div>
+                    <div className='mt-auto px-3 py-2 flex justify-center'>
+                        <button onClick={handSearchback} className='bg-white rounded-full p-2 shadow-md hover:bg-sky-200'>
+                            <IoArrowBackSharp size={25} className='text-sky-700' />
+                        </button>
+                    </div>
+                </>
+            ) : (
+                <>
+                    <div className="min-h-[70%] max-h-[80%] overflow-y-auto scrollbar">
+                        {chatUser.length === 0 ? (
+                            <div className='font-bold items-center flex flex-col text-xl text-yellow-500'>
+                                <h1>Why are you Alone!!🤔</h1>
+                                <h1>Search username to chat</h1>
+                            </div>
+                        ) : (
+                            chatUser.map((user, index) => (
+                                <div key={user._id}>
+                                    <div
+                                        onClick={() => handelUserClick(user)}
+                                        className={`flex gap-3 items-center rounded-lg p-3 cursor-pointer hover:bg-sky-600 transition duration-300 
+                                            ${selectedUserId === user?._id ? 'bg-sky-500' : ''}`}
+                                    >
+                                        {/* Socket Online Status */}
+                                        <div className={`avatar ${isOnline[index] ? 'online' : ''}`}>
+                                            <div className="w-12 h-12 rounded-full overflow-hidden shadow-lg">
+                                                <img src={user.profilepic} alt="user.img" />
+                                            </div>
+                                        </div>
+                                        <div className='flex flex-col flex-1'>
+                                            <p className='font-semibold text-gray-100'>{user.username}</p>
+                                        </div>
+                                        <div>
+                                            {newMessageUsers.reciverId === authUser._id && newMessageUsers.senderId === user._id &&
+                                                <div className="rounded-full bg-green-700 text-sm text-white px-[6px] py-[2px]">+1</div>
+                                            }
+                                        </div>
+                                    </div>
+                                    <div className='divider divide-solid px-2 h-[1px]'></div>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                    <div className='mt-auto px-3 py-2 flex justify-between'>
+                        <button onClick={handelLogOut} className='hover:bg-red-600 p-2 rounded-lg text-white hover:text-white'>
+                            <BiLogOut size={25} />
+                        </button>
+                        {/* <p className='text-sm py-2 text-white'></p> */}
+                    </div>
+                </>
+            )}
         </div>
-    );
-};
+    )
+}
 
 export default Sidebar;

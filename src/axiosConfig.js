@@ -2,7 +2,7 @@
 import axios from 'axios';
 
 const instance = axios.create({
-    baseURL: 'http://localhost:3000', // Update with your API URL
+    baseURL: 'http://192.168.4.160:3000', // Update with your API URL
 
 });
 
