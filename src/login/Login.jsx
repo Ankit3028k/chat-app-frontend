@@ -22,7 +22,7 @@ const Login = () => {
     e.preventDefault();
     setLoading(true);
     try {
-      const login = await axios.post('/api/auth/login', userInput);
+      const login = await axios.post('https://chat-app-backend-stzg.onrender.com/api/auth/login', userInput);
       const data = login.data;
 
       if (data.success === false) {
