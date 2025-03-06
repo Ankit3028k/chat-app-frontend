@@ -22,7 +22,7 @@ const Register = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const response = await axios.post('https://chat-app-backend-stzg.onrender.com/api/auth/register', formData);
+      const response = await axios.post('/api/auth/register', formData);
       if (response.status === 200) {
         alert('Registration successful!');
       }
